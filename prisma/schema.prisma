@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id            String    @id @default(cuid())
+  name          String
+  email         String
+  photo         String?
+  dateOfBirth   DateTime?
+  dateOfJoining DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  cards         Card[]
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  cardType  String
+  width     Int      @default(800)
+  height    Int      @default(600)
+  elements  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cards     Card[]
+}
+
+model Card {
+  id            String   @id @default(cuid())
+  recipientName String
+  message       String
+  photoUrl      String?
+  cardType      String
+  imageUrl      String?
+  person        Person?  @relation(fields: [personId], references: [id])
+  personId      String?
+  template      Template @relation(fields: [templateId], references: [id])
+  templateId    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

@@ -1,137 +1,135 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+
+export interface PersonFormData {
+  name: string;
+  email: string;
+  photo?: string;
+  dateOfBirth?: Date | string;
+  dateOfJoining?: Date | string;
+}
 
 interface PersonFormProps {
   onSubmit: (data: PersonFormData) => void;
   initialData?: PersonFormData;
   buttonText?: string;
+  buttonClassName?: string;
+  isLoading?: boolean;
 }
 
-export interface PersonFormData {
-  name: string;
-  dateOfBirth: string;
-  joiningDate: string;
-  imageUrl: string;
-}
+export function PersonForm({
+  onSubmit,
+  initialData,
+  buttonText = "Submit",
+  buttonClassName = "",
+  isLoading = false,
+}: PersonFormProps) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [dateOfJoining, setDateOfJoining] = useState("");
 
-export function PersonForm({ onSubmit, initialData, buttonText = 'Submit' }: PersonFormProps) {
-  const [formData, setFormData] = useState<PersonFormData>(
-    initialData || {
-      name: '',
-      dateOfBirth: '',
-      joiningDate: '',
-      imageUrl: '',
+  useEffect(() => {
+    if (initialData) {
+      setName(initialData.name || "");
+      setEmail(initialData.email || "");
+
+      if (initialData.dateOfBirth) {
+        if (typeof initialData.dateOfBirth === "string") {
+          // Convert to YYYY-MM-DD for the date input
+          const date = new Date(initialData.dateOfBirth);
+          setDateOfBirth(format(date, "yyyy-MM-dd"));
+        } else {
+          setDateOfBirth(format(initialData.dateOfBirth, "yyyy-MM-dd"));
+        }
+      }
+
+      if (initialData.dateOfJoining) {
+        if (typeof initialData.dateOfJoining === "string") {
+          const date = new Date(initialData.dateOfJoining);
+          setDateOfJoining(format(date, "yyyy-MM-dd"));
+        } else {
+          setDateOfJoining(format(initialData.dateOfJoining, "yyyy-MM-dd"));
+        }
+      }
     }
-  );
-  const [urlError, setUrlError] = useState('');
+  }, [initialData]);
 
-  // Function to validate image URL
-  const isValidImageUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return url.startsWith('http://') || url.startsWith('https://');
-    } catch {
-      return false;
-    }
-  };
-
-  const handleUrlChange = (url: string) => {
-    setFormData({ ...formData, imageUrl: url });
-    if (!url) {
-      setUrlError('');
-    } else if (!isValidImageUrl(url)) {
-      setUrlError('Please enter a valid HTTP/HTTPS URL');
-    } else {
-      setUrlError('');
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.name || !formData.dateOfBirth || !formData.joiningDate) {
-      toast.error('Please fill in all required fields');
+
+    if (!name.trim() || !email.trim() || !dateOfBirth) {
+      alert("Name, email, and date of birth are required");
       return;
     }
 
-    // Validate image URL
-    if (!formData.imageUrl) {
-      toast.error('Please provide an image URL');
-      return;
-    }
+    const formData: PersonFormData = {
+      name: name.trim(),
+      email: email.trim(),
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
+    };
 
-    if (!isValidImageUrl(formData.imageUrl)) {
-      toast.error('Please enter a valid image URL (must start with http:// or https://)');
-      return;
-    }
-
-    // Validate dates
-    const dob = new Date(formData.dateOfBirth);
-    const joinDate = new Date(formData.joiningDate);
-
-    if (isNaN(dob.getTime()) || isNaN(joinDate.getTime())) {
-      toast.error('Please enter valid dates');
-      return;
-    }
-
+    console.log("Form data to submit:", formData);
     onSubmit(formData);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="name">Name</Label>
+    <form onSubmit={handleFormSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Name *</Label>
         <Input
           id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           placeholder="Enter name"
           required
         />
       </div>
-      <div>
-        <Label htmlFor="dateOfBirth">Date of Birth</Label>
+
+      <div className="space-y-2">
+        <Label htmlFor="email">Email *</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter email"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="dateOfBirth">Date of Birth *</Label>
         <Input
           id="dateOfBirth"
           type="date"
-          value={formData.dateOfBirth}
-          onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+          value={dateOfBirth}
+          onChange={(e) => setDateOfBirth(e.target.value)}
           required
+          max={new Date().toISOString().split("T")[0]} // Prevent future dates
         />
       </div>
-      <div>
-        <Label htmlFor="joiningDate">Joining Date</Label>
+
+      <div className="space-y-2">
+        <Label htmlFor="dateOfJoining">Date of Joining</Label>
         <Input
-          id="joiningDate"
+          id="dateOfJoining"
           type="date"
-          value={formData.joiningDate}
-          onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-          required
+          value={dateOfJoining}
+          onChange={(e) => setDateOfJoining(e.target.value)}
         />
       </div>
-      <div>
-        <Label htmlFor="imageUrl">Image URL</Label>
-        <Input
-          id="imageUrl"
-          value={formData.imageUrl}
-          onChange={(e) => handleUrlChange(e.target.value)}
-          placeholder="Enter image URL (https://...)"
-          className={urlError ? 'border-red-500' : ''}
-          required
-        />
-        {urlError && (
-          <p className="text-sm text-red-500 mt-1">{urlError}</p>
-        )}
-        <p className="text-sm text-gray-500 mt-1">
-          Must be a valid HTTP/HTTPS URL pointing to an image
-        </p>
-      </div>
-      <Button type="submit" className="w-full">
-        {buttonText}
+
+      <Button
+        type="submit"
+        className={buttonClassName}
+        disabled={isLoading || !name.trim() || !email.trim() || !dateOfBirth}
+      >
+        {isLoading ? "Loading..." : buttonText}
       </Button>
     </form>
   );

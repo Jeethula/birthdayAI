@@ -31,10 +31,13 @@ import {
   Image as ImageIcon,
   Type,
   Upload,
+  Sparkles,
+  PenTool,
+  LayoutTemplate,
+  Settings, // Added the missing import
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Navbar } from "@/components/navbar";
 import toast, { Toaster } from "react-hot-toast";
-import { PrismaClient } from "@prisma/client";
 
 type Element = {
   id: string;
@@ -358,14 +361,24 @@ export default function TemplateManager() {
   };
 
   const handleSelectTemplate = (template: Template) => {
-    setCurrentTemplate(template);
+    // Make sure elements is properly parsed
+    const parsedElements = Array.isArray(template.elements)
+      ? template.elements
+      : typeof template.elements === "string"
+      ? JSON.parse(template.elements)
+      : [];
+
+    setCurrentTemplate({
+      ...template,
+      elements: parsedElements,
+    });
     setIsCreatingNew(false);
     setSelectedElement(null);
   };
 
   const handleNewTemplate = () => {
     // Create a new template with default elements for profile photo, name, and message
-    const defaultElements = [
+    const defaultElements: Element[] = [
       {
         id: `element-${Date.now()}-photo`,
         type: "image",
@@ -378,25 +391,25 @@ export default function TemplateManager() {
       {
         id: `element-${Date.now()}-name`,
         type: "text",
-        x: 300,
+        x: CANVAS_WIDTH / 2, // Center horizontally
         y: 100,
-        fontSize: 36,
+        fontSize: 48, // Larger font for name
         fontFamily: "Arial",
         color: "#ffffff",
         strokeColor: "#000000",
-        strokeWidth: 1,
+        strokeWidth: 2,
         label: "{{name}}",
       },
       {
         id: `element-${Date.now()}-message`,
         type: "text",
-        x: 300,
+        x: CANVAS_WIDTH / 2, // Center horizontally
         y: 200,
-        fontSize: 24,
+        fontSize: 32, // Larger font for message
         fontFamily: "Arial",
         color: "#ffffff",
         strokeColor: "#000000",
-        strokeWidth: 1,
+        strokeWidth: 2,
         label: "{{message}}",
       },
     ];
@@ -567,611 +580,844 @@ export default function TemplateManager() {
     setIsDragging(false);
   };
 
-  console.log("About to render component");
+  const handleDeleteTemplate = async (templateId?: string) => {
+    if (!templateId) return;
+
+    if (
+      !confirm(
+        "Are you sure you want to delete this template? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/templates/${templateId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error(
+          `Failed to delete template: ${response.status} ${response.statusText}`
+        );
+      }
+
+      toast.success("Template deleted successfully");
+
+      // Refresh templates list
+      fetchTemplates();
+
+      // If the deleted template is the current one, reset to create new template
+      if (templateId === currentTemplate.id) {
+        handleNewTemplate();
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast.error(
+        `Failed to delete template: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-pink-100 to-purple-100 py-12 px-4">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <Card className="bg-white/80 backdrop-blur">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-3xl text-purple-800">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 overflow-hidden">
+      <Navbar />
+
+      <div className="flex-1 overflow-auto py-4 px-4">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="bg-blue-600 p-1.5 rounded-lg shadow-md mr-3">
+                <LayoutTemplate className="w-5 h-5 text-white" />
+              </div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
                 Template Manager
+              </h2>
+            </div>
+            <div className="flex space-x-2 text-sm">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                <PenTool className="w-3.5 h-3.5 mr-1.5" />
+                <span className="font-medium">Design Mode</span>
+              </span>
+            </div>
+          </div>
+
+          <Card className="rounded-xl shadow-md border-gray-200 overflow-hidden">
+            <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center">
+                <Sparkles className="w-4 h-4 mr-1.5" />
+                Design Your Template
               </CardTitle>
               <div className="flex space-x-2">
-                <Button onClick={handleNewTemplate} variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button
+                  onClick={handleNewTemplate}
+                  variant="outline"
+                  className="bg-blue-700/20 border-blue-400/30 text-white hover:bg-blue-700/30 hover:text-white rounded-lg text-xs h-8"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
                   New Template
                 </Button>
                 <Button
                   onClick={handleSaveTemplate}
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg text-xs h-8"
                   disabled={isSaving}
                 >
                   {isSaving ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4 mr-2" />
+                      <Save className="w-3.5 h-3.5 mr-1.5" />
                       Save Template
                     </>
                   )}
                 </Button>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="editor" className="mt-4">
-              <TabsList className="mb-4">
-                <TabsTrigger value="editor">Template Editor</TabsTrigger>
-                <TabsTrigger value="list">Template List</TabsTrigger>
-              </TabsList>
+            </CardHeader>
+            <CardContent className="p-4">
+              <Tabs defaultValue="editor" className="mt-2">
+                <TabsList className="mb-4 bg-blue-100/50 p-1 rounded-lg">
+                  <TabsTrigger
+                    value="editor"
+                    className="rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700"
+                  >
+                    Template Editor
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="list"
+                    className="rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700"
+                  >
+                    Template Gallery
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="editor" className="space-y-6">
-                <div className="grid md:grid-cols-12 gap-8">
-                  {/* Editor controls - takes 4 columns */}
-                  <div className="md:col-span-4 space-y-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="template-name">Template Name</Label>
-                        <Input
-                          id="template-name"
-                          value={currentTemplate.name}
-                          onChange={(e) =>
-                            setCurrentTemplate({
-                              ...currentTemplate,
-                              name: e.target.value,
-                            })
-                          }
-                          placeholder="Enter template name"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="template-url">Image URL</Label>
-                        <Input
-                          id="template-url"
-                          value={currentTemplate.url}
-                          onChange={(e) =>
-                            setCurrentTemplate({
-                              ...currentTemplate,
-                              url: e.target.value,
-                            })
-                          }
-                          placeholder="Enter image URL"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="template-image-upload">
-                          Or Upload Image
-                        </Label>
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            id="template-image-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() =>
-                              document
-                                .getElementById("template-image-upload")
-                                ?.click()
-                            }
-                          >
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Max size: 1MB. Image will be converted to base64.
-                        </p>
-                      </div>
-
-                      {currentTemplate.url &&
-                        currentTemplate.url.startsWith("data:image") && (
-                          <div className="mt-2">
-                            <div className="border rounded p-2 bg-gray-50">
-                              <p className="text-xs text-gray-500 mb-2">
-                                Image Preview:
-                              </p>
-                              <img
-                                src={currentTemplate.url}
-                                alt="Template preview"
-                                className="max-h-32 mx-auto object-contain"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                      <div>
-                        <Label htmlFor="card-type">Card Type</Label>
-                        <Select
-                          value={currentTemplate.cardType}
-                          onValueChange={(value) =>
-                            setCurrentTemplate({
-                              ...currentTemplate,
-                              cardType: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger id="card-type">
-                            <SelectValue placeholder="Select card type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="birthday">Birthday</SelectItem>
-                            <SelectItem value="anniversary">
-                              Work Anniversary
-                            </SelectItem>
-                            <SelectItem value="holiday">Holiday</SelectItem>
-                            <SelectItem value="congratulations">
-                              Congratulations
-                            </SelectItem>
-                            <SelectItem value="custom">Custom</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="canvas-width">Width (px)</Label>
-                          <Input
-                            id="canvas-width"
-                            type="number"
-                            value={currentTemplate.width}
-                            onChange={(e) =>
-                              setCurrentTemplate({
-                                ...currentTemplate,
-                                width:
-                                  parseInt(e.target.value) ||
-                                  DEFAULT_CANVAS_WIDTH,
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="canvas-height">Height (px)</Label>
-                          <Input
-                            id="canvas-height"
-                            type="number"
-                            value={currentTemplate.height}
-                            onChange={(e) =>
-                              setCurrentTemplate({
-                                ...currentTemplate,
-                                height:
-                                  parseInt(e.target.value) ||
-                                  DEFAULT_CANVAS_HEIGHT,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold">Elements</h3>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddElement("text")}
-                          >
-                            <Type className="w-4 h-4 mr-1" />
-                            Add Text
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddElement("image")}
-                          >
-                            <ImageIcon className="w-4 h-4 mr-1" />
-                            Add Image
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {currentTemplate.elements.map((element) => (
-                          <div
-                            key={element.id}
-                            className={`p-2 border rounded-md cursor-pointer flex justify-between items-center ${
-                              selectedElement?.id === element.id
-                                ? "bg-purple-100 border-purple-300"
-                                : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => setSelectedElement(element)}
-                          >
-                            <div className="flex items-center">
-                              {element.type === "text" ? (
-                                <Type className="w-4 h-4 mr-2" />
-                              ) : (
-                                <ImageIcon className="w-4 h-4 mr-2" />
-                              )}
-                              <span className="truncate">
-                                {element.label || element.type}
-                              </span>
-                            </div>
-                            <Move className="w-4 h-4 text-gray-400" />
-                          </div>
-                        ))}
-                        {currentTemplate.elements.length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-2">
-                            No elements added yet
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Element properties panel */}
-                    {selectedElement && (
-                      <div className="border-t border-gray-200 pt-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-semibold">
-                            Element Properties
-                          </h3>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={handleDeleteElement}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        <div className="space-y-4">
+                <TabsContent value="editor" className="space-y-6">
+                  <div className="grid md:grid-cols-12 gap-4">
+                    {/* Editor controls - takes 4 columns */}
+                    <div className="md:col-span-4 space-y-4">
+                      <Card className="rounded-xl shadow-sm border-gray-200 overflow-hidden">
+                        <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                          <CardTitle className="text-sm font-medium text-blue-700 flex items-center">
+                            <Settings className="w-4 h-4 mr-1.5" />
+                            Template Settings
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-4">
                           <div>
-                            <Label htmlFor="element-label">
-                              Label{" "}
-                              {selectedElement.type === "text" && (
-                                <span className="text-xs text-gray-500 ml-1">
-                                  (Use {NAME_PLACEHOLDER} or{" "}
-                                  {MESSAGE_PLACEHOLDER} for dynamic content)
-                                </span>
-                              )}
-                              {selectedElement.type === "image" &&
-                                selectedElement.label === "Profile Photo" && (
-                                  <span className="text-xs text-purple-500 ml-1">
-                                    (This will display the person's profile
-                                    photo)
-                                  </span>
-                                )}
+                            <Label
+                              htmlFor="template-name"
+                              className="text-blue-900 font-medium text-sm"
+                            >
+                              Template Name
                             </Label>
                             <Input
-                              id="element-label"
-                              value={selectedElement.label}
+                              id="template-name"
+                              value={currentTemplate.name}
                               onChange={(e) =>
-                                handleElementPropertyChange(
-                                  "label",
-                                  e.target.value
-                                )
+                                setCurrentTemplate({
+                                  ...currentTemplate,
+                                  name: e.target.value,
+                                })
                               }
+                              placeholder="Enter template name"
+                              className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
                             />
+                          </div>
+
+                          <div>
+                            <Label
+                              htmlFor="template-url"
+                              className="text-blue-900 font-medium text-sm"
+                            >
+                              Image URL
+                            </Label>
+                            <Input
+                              id="template-url"
+                              value={currentTemplate.url}
+                              onChange={(e) =>
+                                setCurrentTemplate({
+                                  ...currentTemplate,
+                                  url: e.target.value,
+                                })
+                              }
+                              placeholder="Enter image URL"
+                              className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <Label
+                              htmlFor="template-image-upload"
+                              className="text-blue-900 font-medium text-sm"
+                            >
+                              Or Upload Image
+                            </Label>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Input
+                                id="template-image-upload"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="flex-1 rounded-lg border-gray-200 focus:border-blue-500 text-sm"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  document
+                                    .getElementById("template-image-upload")
+                                    ?.click()
+                                }
+                                className="rounded-lg border-gray-200"
+                              >
+                                <Upload className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Max size: 1MB. Image will be converted to base64.
+                            </p>
+                          </div>
+
+                          {currentTemplate.url &&
+                            currentTemplate.url.startsWith("data:image") && (
+                              <div className="mt-2">
+                                <div className="border rounded-lg p-2 bg-gray-50">
+                                  <p className="text-xs text-gray-500 mb-2">
+                                    Image Preview:
+                                  </p>
+                                  <img
+                                    src={currentTemplate.url}
+                                    alt="Template preview"
+                                    className="max-h-32 mx-auto object-contain rounded-md"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                          <div>
+                            <Label
+                              htmlFor="card-type"
+                              className="text-blue-900 font-medium text-sm"
+                            >
+                              Card Type
+                            </Label>
+                            <Select
+                              value={currentTemplate.cardType}
+                              onValueChange={(value) =>
+                                setCurrentTemplate({
+                                  ...currentTemplate,
+                                  cardType: value,
+                                })
+                              }
+                            >
+                              <SelectTrigger
+                                id="card-type"
+                                className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                              >
+                                <SelectValue placeholder="Select card type" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-lg">
+                                <SelectItem value="birthday">
+                                  Birthday
+                                </SelectItem>
+                                <SelectItem value="anniversary">
+                                  Work Anniversary
+                                </SelectItem>
+                                <SelectItem value="holiday">Holiday</SelectItem>
+                                <SelectItem value="congratulations">
+                                  Congratulations
+                                </SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label htmlFor="element-x">X Position</Label>
+                              <Label
+                                htmlFor="canvas-width"
+                                className="text-blue-900 font-medium text-sm"
+                              >
+                                Width (px)
+                              </Label>
                               <Input
-                                id="element-x"
+                                id="canvas-width"
                                 type="number"
-                                value={selectedElement.x}
+                                value={currentTemplate.width}
                                 onChange={(e) =>
-                                  handleElementPropertyChange(
-                                    "x",
-                                    parseInt(e.target.value) || 0
-                                  )
+                                  setCurrentTemplate({
+                                    ...currentTemplate,
+                                    width:
+                                      parseInt(e.target.value) ||
+                                      DEFAULT_CANVAS_WIDTH,
+                                  })
                                 }
+                                className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
                               />
                             </div>
                             <div>
-                              <Label htmlFor="element-y">Y Position</Label>
+                              <Label
+                                htmlFor="canvas-height"
+                                className="text-blue-900 font-medium text-sm"
+                              >
+                                Height (px)
+                              </Label>
                               <Input
-                                id="element-y"
+                                id="canvas-height"
                                 type="number"
-                                value={selectedElement.y}
+                                value={currentTemplate.height}
                                 onChange={(e) =>
-                                  handleElementPropertyChange(
-                                    "y",
-                                    parseInt(e.target.value) || 0
-                                  )
+                                  setCurrentTemplate({
+                                    ...currentTemplate,
+                                    height:
+                                      parseInt(e.target.value) ||
+                                      DEFAULT_CANVAS_HEIGHT,
+                                  })
                                 }
+                                className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
                               />
                             </div>
                           </div>
+                        </CardContent>
+                      </Card>
 
-                          {selectedElement.type === "text" && (
-                            <>
-                              <div>
-                                <Label htmlFor="element-font-size">
-                                  Font Size
-                                </Label>
-                                <Input
-                                  id="element-font-size"
-                                  type="number"
-                                  value={selectedElement.fontSize || 24}
-                                  onChange={(e) =>
-                                    handleElementPropertyChange(
-                                      "fontSize",
-                                      parseInt(e.target.value) || 24
-                                    )
-                                  }
-                                />
-                              </div>
-
-                              <div>
-                                <Label htmlFor="element-font-family">
-                                  Font Family
-                                </Label>
-                                <Select
-                                  value={selectedElement.fontFamily || "Arial"}
-                                  onValueChange={(value) =>
-                                    handleElementPropertyChange(
-                                      "fontFamily",
-                                      value
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger id="element-font-family">
-                                    <SelectValue placeholder="Select font" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Arial">Arial</SelectItem>
-                                    <SelectItem value="Helvetica">
-                                      Helvetica
-                                    </SelectItem>
-                                    <SelectItem value="Times New Roman">
-                                      Times New Roman
-                                    </SelectItem>
-                                    <SelectItem value="Courier New">
-                                      Courier New
-                                    </SelectItem>
-                                    <SelectItem value="Georgia">
-                                      Georgia
-                                    </SelectItem>
-                                    <SelectItem value="Verdana">
-                                      Verdana
-                                    </SelectItem>
-                                    <SelectItem value="Impact">
-                                      Impact
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="element-color">
-                                  Text Color
-                                </Label>
-                                <div className="flex">
-                                  <Input
-                                    id="element-color"
-                                    type="color"
-                                    value={selectedElement.color || "#ffffff"}
-                                    onChange={(e) =>
-                                      handleElementPropertyChange(
-                                        "color",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-12 p-1 mr-2"
-                                  />
-                                  <Input
-                                    type="text"
-                                    value={selectedElement.color || "#ffffff"}
-                                    onChange={(e) =>
-                                      handleElementPropertyChange(
-                                        "color",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="flex-1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="element-stroke-color">
-                                  Stroke Color
-                                </Label>
-                                <div className="flex">
-                                  <Input
-                                    id="element-stroke-color"
-                                    type="color"
-                                    value={
-                                      selectedElement.strokeColor || "#000000"
-                                    }
-                                    onChange={(e) =>
-                                      handleElementPropertyChange(
-                                        "strokeColor",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-12 p-1 mr-2"
-                                  />
-                                  <Input
-                                    type="text"
-                                    value={
-                                      selectedElement.strokeColor || "#000000"
-                                    }
-                                    onChange={(e) =>
-                                      handleElementPropertyChange(
-                                        "strokeColor",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="flex-1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="element-stroke-width">
-                                  Stroke Width
-                                </Label>
-                                <Input
-                                  id="element-stroke-width"
-                                  type="number"
-                                  min="0"
-                                  step="0.5"
-                                  value={selectedElement.strokeWidth || 1}
-                                  onChange={(e) =>
-                                    handleElementPropertyChange(
-                                      "strokeWidth",
-                                      parseFloat(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                              </div>
-                            </>
-                          )}
-
-                          {selectedElement.type === "image" && (
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="element-width">Width</Label>
-                                <Input
-                                  id="element-width"
-                                  type="number"
-                                  value={selectedElement.width || 150}
-                                  onChange={(e) =>
-                                    handleElementPropertyChange(
-                                      "width",
-                                      parseInt(e.target.value) || 150
-                                    )
-                                  }
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="element-height">Height</Label>
-                                <Input
-                                  id="element-height"
-                                  type="number"
-                                  value={selectedElement.height || 150}
-                                  onChange={(e) =>
-                                    handleElementPropertyChange(
-                                      "height",
-                                      parseInt(e.target.value) || 150
-                                    )
-                                  }
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Canvas preview - takes 8 columns */}
-                  <div className="md:col-span-8">
-                    <div className="border rounded-lg bg-white p-4 shadow-inner overflow-hidden">
-                      <p className="text-sm text-gray-500 mb-2">
-                        Click and drag elements to reposition them
-                      </p>
-                      <div className="overflow-auto">
-                        <canvas
-                          ref={canvasRef}
-                          className="border"
-                          style={{
-                            width: "100%",
-                            height: "auto",
-                            maxHeight: "70vh",
-                          }}
-                          onClick={handleCanvasClick}
-                          onMouseMove={handleMouseMove}
-                          onMouseUp={handleMouseUp}
-                          onMouseLeave={handleMouseUp}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="list">
-                {isLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Dimensions</TableHead>
-                        <TableHead className="w-24">Elements</TableHead>
-                        <TableHead>Preview</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {templates.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8">
-                            No templates found. Create your first template!
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        templates.map((template) => (
-                          <TableRow key={template.id}>
-                            <TableCell className="font-medium">
-                              {template.name}
-                            </TableCell>
-                            <TableCell>
-                              <span className="capitalize">
-                                {template.cardType}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {template.width} × {template.height}
-                            </TableCell>
-                            <TableCell>
-                              {template.elements?.length || 0}
-                            </TableCell>
-                            <TableCell>
-                              <div className="w-24 h-16 overflow-hidden">
-                                <img
-                                  src={template.url}
-                                  alt={template.name}
-                                  className="w-full h-full object-cover rounded-md"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src =
-                                      "https://placehold.co/100x60?text=No+Image";
-                                  }}
-                                  style={{
-                                    maxWidth: "100%",
-                                    maxHeight: "100%",
-                                  }}
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
+                      <Card className="rounded-xl shadow-sm border-gray-200 overflow-hidden">
+                        <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                          <div className="flex justify-between items-center">
+                            <CardTitle className="text-sm font-medium text-blue-700 flex items-center">
+                              <PenTool className="w-4 h-4 mr-1.5" />
+                              Elements
+                            </CardTitle>
+                            <div className="flex space-x-2">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleSelectTemplate(template)}
+                                onClick={() => handleAddElement("text")}
+                                className="h-7 px-2 text-xs rounded-lg border-gray-200 text-blue-700 hover:bg-blue-50"
                               >
-                                Edit
+                                <Type className="w-3 h-3 mr-1" />
+                                Add Text
                               </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleAddElement("image")}
+                                className="h-7 px-2 text-xs rounded-lg border-gray-200 text-blue-700 hover:bg-blue-50"
+                              >
+                                <ImageIcon className="w-3 h-3 mr-1" />
+                                Add Image
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-3">
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {currentTemplate.elements.map((element) => (
+                              <div
+                                key={element.id}
+                                className={`p-2 border rounded-lg cursor-pointer flex justify-between items-center ${
+                                  selectedElement?.id === element.id
+                                    ? "bg-blue-100 border-blue-300"
+                                    : "hover:bg-blue-50 border-gray-200"
+                                }`}
+                                onClick={() => setSelectedElement(element)}
+                              >
+                                <div className="flex items-center">
+                                  {element.type === "text" ? (
+                                    <Type className="w-3.5 h-3.5 mr-2 text-blue-700" />
+                                  ) : (
+                                    <ImageIcon className="w-3.5 h-3.5 mr-2 text-blue-700" />
+                                  )}
+                                  <span className="truncate text-sm">
+                                    {element.label || element.type}
+                                  </span>
+                                </div>
+                                <Move className="w-3.5 h-3.5 text-gray-400" />
+                              </div>
+                            ))}
+                            {currentTemplate.elements.length === 0 && (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No elements added yet
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Element properties panel */}
+                      {selectedElement && (
+                        <Card className="rounded-xl shadow-sm border-gray-200 overflow-hidden">
+                          <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                            <div className="flex justify-between items-center">
+                              <CardTitle className="text-sm font-medium text-blue-700 flex items-center">
+                                <Settings className="w-4 h-4 mr-1.5" />
+                                Element Properties
+                              </CardTitle>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={handleDeleteElement}
+                                className="h-7 px-2 text-xs rounded-lg"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-4 space-y-3">
+                            <div>
+                              <Label
+                                htmlFor="element-label"
+                                className="text-blue-900 font-medium text-sm"
+                              >
+                                Label{" "}
+                                {selectedElement.type === "text" && (
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    (Use {NAME_PLACEHOLDER} or{" "}
+                                    {MESSAGE_PLACEHOLDER} for dynamic content)
+                                  </span>
+                                )}
+                                {selectedElement.type === "image" &&
+                                  selectedElement.label === "Profile Photo" && (
+                                    <span className="text-xs text-blue-500 ml-1">
+                                      (This will display the person's profile
+                                      photo)
+                                    </span>
+                                  )}
+                              </Label>
+                              <Input
+                                id="element-label"
+                                value={selectedElement.label}
+                                onChange={(e) =>
+                                  handleElementPropertyChange(
+                                    "label",
+                                    e.target.value
+                                  )
+                                }
+                                className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label
+                                  htmlFor="element-x"
+                                  className="text-blue-900 font-medium text-sm"
+                                >
+                                  X Position
+                                </Label>
+                                <Input
+                                  id="element-x"
+                                  type="number"
+                                  value={selectedElement.x}
+                                  onChange={(e) =>
+                                    handleElementPropertyChange(
+                                      "x",
+                                      parseInt(e.target.value) || 0
+                                    )
+                                  }
+                                  className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <Label
+                                  htmlFor="element-y"
+                                  className="text-blue-900 font-medium text-sm"
+                                >
+                                  Y Position
+                                </Label>
+                                <Input
+                                  id="element-y"
+                                  type="number"
+                                  value={selectedElement.y}
+                                  onChange={(e) =>
+                                    handleElementPropertyChange(
+                                      "y",
+                                      parseInt(e.target.value) || 0
+                                    )
+                                  }
+                                  className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                />
+                              </div>
+                            </div>
+
+                            {selectedElement.type === "text" && (
+                              <>
+                                <div>
+                                  <Label
+                                    htmlFor="element-font-size"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Font Size
+                                  </Label>
+                                  <Input
+                                    id="element-font-size"
+                                    type="number"
+                                    value={selectedElement.fontSize || 24}
+                                    onChange={(e) =>
+                                      handleElementPropertyChange(
+                                        "fontSize",
+                                        parseInt(e.target.value) || 24
+                                      )
+                                    }
+                                    className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label
+                                    htmlFor="element-font-family"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Font Family
+                                  </Label>
+                                  <Select
+                                    value={
+                                      selectedElement.fontFamily || "Arial"
+                                    }
+                                    onValueChange={(value) =>
+                                      handleElementPropertyChange(
+                                        "fontFamily",
+                                        value
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger
+                                      id="element-font-family"
+                                      className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                    >
+                                      <SelectValue placeholder="Select font" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-lg">
+                                      <SelectItem value="Arial">
+                                        Arial
+                                      </SelectItem>
+                                      <SelectItem value="Helvetica">
+                                        Helvetica
+                                      </SelectItem>
+                                      <SelectItem value="Times New Roman">
+                                        Times New Roman
+                                      </SelectItem>
+                                      <SelectItem value="Courier New">
+                                        Courier New
+                                      </SelectItem>
+                                      <SelectItem value="Georgia">
+                                        Georgia
+                                      </SelectItem>
+                                      <SelectItem value="Verdana">
+                                        Verdana
+                                      </SelectItem>
+                                      <SelectItem value="Impact">
+                                        Impact
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label
+                                    htmlFor="element-color"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Text Color
+                                  </Label>
+                                  <div className="flex mt-1">
+                                    <Input
+                                      id="element-color"
+                                      type="color"
+                                      value={selectedElement.color || "#ffffff"}
+                                      onChange={(e) =>
+                                        handleElementPropertyChange(
+                                          "color",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="w-12 p-1 mr-2 rounded-lg border-gray-200"
+                                    />
+                                    <Input
+                                      type="text"
+                                      value={selectedElement.color || "#ffffff"}
+                                      onChange={(e) =>
+                                        handleElementPropertyChange(
+                                          "color",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label
+                                    htmlFor="element-stroke-color"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Stroke Color
+                                  </Label>
+                                  <div className="flex mt-1">
+                                    <Input
+                                      id="element-stroke-color"
+                                      type="color"
+                                      value={
+                                        selectedElement.strokeColor || "#000000"
+                                      }
+                                      onChange={(e) =>
+                                        handleElementPropertyChange(
+                                          "strokeColor",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="w-12 p-1 mr-2 rounded-lg border-gray-200"
+                                    />
+                                    <Input
+                                      type="text"
+                                      value={
+                                        selectedElement.strokeColor || "#000000"
+                                      }
+                                      onChange={(e) =>
+                                        handleElementPropertyChange(
+                                          "strokeColor",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label
+                                    htmlFor="element-stroke-width"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Stroke Width
+                                  </Label>
+                                  <Input
+                                    id="element-stroke-width"
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={selectedElement.strokeWidth || 1}
+                                    onChange={(e) =>
+                                      handleElementPropertyChange(
+                                        "strokeWidth",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {selectedElement.type === "image" && (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label
+                                    htmlFor="element-width"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Width
+                                  </Label>
+                                  <Input
+                                    id="element-width"
+                                    type="number"
+                                    value={selectedElement.width || 150}
+                                    onChange={(e) =>
+                                      handleElementPropertyChange(
+                                        "width",
+                                        parseInt(e.target.value) || 150
+                                      )
+                                    }
+                                    className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <Label
+                                    htmlFor="element-height"
+                                    className="text-blue-900 font-medium text-sm"
+                                  >
+                                    Height
+                                  </Label>
+                                  <Input
+                                    id="element-height"
+                                    type="number"
+                                    value={selectedElement.height || 150}
+                                    onChange={(e) =>
+                                      handleElementPropertyChange(
+                                        "height",
+                                        parseInt(e.target.value) || 150
+                                      )
+                                    }
+                                    className="mt-1 rounded-lg border-gray-200 focus:border-blue-500"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
                       )}
-                    </TableBody>
-                  </Table>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                    </div>
+
+                    {/* Canvas preview - takes 8 columns */}
+                    <div className="md:col-span-8">
+                      <Card className="rounded-xl shadow-md h-full flex flex-col overflow-hidden">
+                        <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 flex-shrink-0">
+                          <CardTitle className="text-sm font-medium flex items-center">
+                            <LayoutTemplate className="w-4 h-4 mr-1.5" />
+                            Template Preview
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 bg-gradient-to-br from-slate-50 to-slate-100 flex-1 overflow-hidden">
+                          <p className="text-sm text-blue-700 mb-2 font-medium">
+                            Click and drag elements to reposition them
+                          </p>
+                          <div className="overflow-auto flex items-center justify-center h-[calc(100%-30px)]">
+                            <canvas
+                              ref={canvasRef}
+                              className="border shadow-md rounded-lg"
+                              style={{
+                                width: "100%",
+                                height: "auto",
+                                maxHeight: "70vh",
+                                maxWidth: "95%",
+                              }}
+                              onClick={handleCanvasClick}
+                              onMouseMove={handleMouseMove}
+                              onMouseUp={handleMouseUp}
+                              onMouseLeave={handleMouseUp}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="list">
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    </div>
+                  ) : (
+                    <Card className="rounded-xl shadow-md border-gray-200 overflow-hidden">
+                      <CardHeader className="pb-2 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                        <CardTitle className="text-sm font-medium text-blue-700 flex items-center">
+                          <LayoutTemplate className="w-4 h-4 mr-1.5" />
+                          Available Templates
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Dimensions</TableHead>
+                              <TableHead className="w-24">Elements</TableHead>
+                              <TableHead>Preview</TableHead>
+                              <TableHead className="text-right">
+                                Actions
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {templates.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={6}
+                                  className="text-center py-8"
+                                >
+                                  No templates found. Create your first
+                                  template!
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              templates.map((template) => (
+                                <TableRow key={template.id}>
+                                  <TableCell className="font-medium">
+                                    {template.name}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="capitalize">
+                                      {template.cardType}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {template.width} × {template.height}
+                                  </TableCell>
+                                  <TableCell>
+                                    {template.elements?.length || 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="w-24 h-16 overflow-hidden rounded-lg border border-gray-200">
+                                      <img
+                                        src={template.url}
+                                        alt={template.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src =
+                                            "https://placehold.co/100x60?text=No+Image";
+                                        }}
+                                        style={{
+                                          maxWidth: "100%",
+                                          maxHeight: "100%",
+                                        }}
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() =>
+                                          handleSelectTemplate(template)
+                                        }
+                                        className="rounded-lg border-gray-200 text-blue-700 hover:bg-blue-50 text-xs"
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() =>
+                                          handleDeleteTemplate(template.id)
+                                        }
+                                        className="rounded-lg text-xs"
+                                      >
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Footer */}
+      <div className="bg-gradient-to-r from-gray-900 to-indigo-900 text-gray-400 py-1.5 text-xs text-center">
+        <span>
+          © {new Date().getFullYear()} CardStudio • Professional Card Maker
+        </span>
+      </div>
+
       <Toaster position="top-right" />
     </div>
   );

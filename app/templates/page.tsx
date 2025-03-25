@@ -360,7 +360,9 @@ export default function TemplateManager() {
     reader.readAsDataURL(file);
   };
 
-  const handleSelectTemplate = (template: Template) => {
+  const [activeTab, setActiveTab] = useState("editor");
+
+  const handleSelectTemplate = (template: Template, switchToEditor = false) => {
     // Make sure elements is properly parsed
     const parsedElements = Array.isArray(template.elements)
       ? template.elements
@@ -374,6 +376,10 @@ export default function TemplateManager() {
     });
     setIsCreatingNew(false);
     setSelectedElement(null);
+    
+    if (switchToEditor) {
+      setActiveTab("editor");
+    }
   };
 
   const handleNewTemplate = () => {
@@ -391,7 +397,7 @@ export default function TemplateManager() {
       {
         id: `element-${Date.now()}-name`,
         type: "text",
-        x: CANVAS_WIDTH / 2, // Center horizontally
+        x: DEFAULT_CANVAS_WIDTH / 2, // Center horizontally
         y: 100,
         fontSize: 48, // Larger font for name
         fontFamily: "Arial",
@@ -403,7 +409,7 @@ export default function TemplateManager() {
       {
         id: `element-${Date.now()}-message`,
         type: "text",
-        x: CANVAS_WIDTH / 2, // Center horizontally
+        x: DEFAULT_CANVAS_WIDTH / 2, // Center horizontally
         y: 200,
         fontSize: 32, // Larger font for message
         fontFamily: "Arial",
@@ -681,7 +687,7 @@ export default function TemplateManager() {
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              <Tabs defaultValue="editor" className="mt-2">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
                 <TabsList className="mb-4 bg-blue-100/50 p-1 rounded-lg">
                   <TabsTrigger
                     value="editor"
@@ -829,11 +835,11 @@ export default function TemplateManager() {
                                 <SelectItem value="anniversary">
                                   Work Anniversary
                                 </SelectItem>
-                                <SelectItem value="holiday">Holiday</SelectItem>
+                                {/* <SelectItem value="holiday">Holiday</SelectItem>
                                 <SelectItem value="congratulations">
                                   Congratulations
                                 </SelectItem>
-                                <SelectItem value="custom">Custom</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem> */}
                               </SelectContent>
                             </Select>
                           </div>
@@ -1378,7 +1384,7 @@ export default function TemplateManager() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() =>
-                                          handleSelectTemplate(template)
+                                          handleSelectTemplate(template, true)
                                         }
                                         className="rounded-lg border-gray-200 text-blue-700 hover:bg-blue-50 text-xs"
                                       >

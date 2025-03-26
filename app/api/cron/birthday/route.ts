@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { sendBirthdayEmail } from '@/lib/email';
-import { generateBirthdayMessage, isGeminiAvailable } from '@/lib/gemini';
+import { generateBirthdayMessage as generateMessage, isGeminiAvailable } from '@/lib/gemini';
+
+type CelebrationType = 'birthday' | 'anniversary' | 'both';
+async function generateBirthdayMessage(name: string, type: CelebrationType = 'birthday'): Promise<string> {
+  return generateMessage(name);
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// This function checks if today is someone's birthday
-function isBirthday(dateOfBirth: Date): boolean {
+// This function checks if today matches a given date's month and day
+function isDateAnniversary(date: Date): boolean {
   const today = new Date();
   return (
-    dateOfBirth.getDate() === today.getDate() &&
-    dateOfBirth.getMonth() === today.getMonth()
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth()
   );
+}
+
+// Check if today is birthday or work anniversary
+function isCelebrationDay(person: { dateOfBirth?: Date | null; dateOfJoining?: Date | null }): {
+  isBirthday: boolean;
+  isWorkAnniversary: boolean;
+} {
+  return {
+    isBirthday: person.dateOfBirth ? isDateAnniversary(new Date(person.dateOfBirth)) : false,
+    isWorkAnniversary: person.dateOfJoining ? isDateAnniversary(new Date(person.dateOfJoining)) : false
+  };
 }
 
 // Validate email format
@@ -21,25 +37,48 @@ function isValidEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-// Generate poster data including message
-async function generateBirthdayPoster(person: { name: string; imageUrl: string }): Promise<string> {
+// Generate celebration poster data including message
+async function generateCelebrationPoster(
+  person: { name: string; imageUrl: string },
+  celebrations: { isBirthday: boolean; isWorkAnniversary: boolean }
+): Promise<string> {
   try {
-    // Generate birthday message (will use fallback if AI is unavailable)
-    const message = await generateBirthdayMessage(person.name);
+    let message;
+    if (celebrations.isBirthday && celebrations.isWorkAnniversary) {
+      message = await generateBirthdayMessage(person.name, 'both');
+    } else if (celebrations.isBirthday) {
+      message = await generateBirthdayMessage(person.name, 'birthday');
+    } else {
+      message = await generateBirthdayMessage(person.name, 'anniversary');
+    }
     
     // Return structured data for the email template
     return JSON.stringify({
       imageUrl: person.imageUrl,
       message: message,
-      isAIGenerated: isGeminiAvailable()
+      isAIGenerated: isGeminiAvailable(),
+      celebrations: {
+        birthday: celebrations.isBirthday,
+        workAnniversary: celebrations.isWorkAnniversary
+      }
     });
   } catch (error) {
-    console.error('Error generating birthday poster:', error);
+    console.error('Error generating celebration poster:', error);
     // Return fallback data if there's an error
+    const fallbackMessage = celebrations.isBirthday && celebrations.isWorkAnniversary
+      ? `Happy birthday and work anniversary, ${person.name}!\nWhat a special day to celebrate!`
+      : celebrations.isBirthday
+        ? `Happy birthday, ${person.name}!\nWishing you a wonderful year ahead!`
+        : `Happy work anniversary, ${person.name}!\nThank you for your dedication and hard work!`;
+    
     return JSON.stringify({
       imageUrl: person.imageUrl,
-      message: `Happy birthday, ${person.name}!\nWishing you a wonderful year ahead!`,
-      isAIGenerated: false
+      message: fallbackMessage,
+      isAIGenerated: false,
+      celebrations: {
+        birthday: celebrations.isBirthday,
+        workAnniversary: celebrations.isWorkAnniversary
+      }
     });
   }
 }
@@ -65,21 +104,26 @@ export async function GET() {
     // Get all people from the database
     const people = await prisma.person.findMany();
     
-    // Filter people who have birthdays today
-    const birthdayPeople = people.filter(person =>
-      person.dateOfBirth && isBirthday(new Date(person.dateOfBirth))
-    );
+    // Filter people who have celebrations today
+    const celebrationPeople = people.filter(person => {
+      const celebrations = isCelebrationDay(person);
+      return celebrations.isBirthday || celebrations.isWorkAnniversary;
+    });
 
     const results = [];
 
-    // For each person with a birthday
-    for (const person of birthdayPeople) {
+    // For each person with a celebration
+    for (const person of celebrationPeople) {
+      const celebrations = isCelebrationDay(person);
       try {
-        // Generate birthday poster with message
-        const posterData = await generateBirthdayPoster({
-          name: person.name,
-          imageUrl: person.photo || '/default-avatar.png' // Fallback to default if no photo
-        });
+        // Generate celebration poster with message
+        const posterData = await generateCelebrationPoster(
+          {
+            name: person.name,
+            imageUrl: person.photo || '/default-avatar.png' // Fallback to default if no photo
+          },
+          celebrations
+        );
 
         // Send email with the poster
         await sendBirthdayEmail({
@@ -91,6 +135,10 @@ export async function GET() {
         results.push({
           name: person.name,
           status: 'success',
+          celebrations: {
+            birthday: celebrations.isBirthday,
+            workAnniversary: celebrations.isWorkAnniversary
+          },
           isAIGenerated: JSON.parse(posterData).isAIGenerated
         });
       } catch (error) {
@@ -104,7 +152,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      message: 'Birthday check complete',
+      message: 'Birthday and work anniversary check complete',
       aiStatus: isGeminiAvailable() ? 'available' : 'unavailable',
       processed: results,
       timestamp: new Date().toISOString(),

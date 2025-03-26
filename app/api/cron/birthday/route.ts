@@ -50,7 +50,7 @@ export async function GET() {
     console.log('AI Generation available:', isGeminiAvailable());
     
     // Get notification email from environment variable
-    const notificationEmail = process.env.NOTIFICATION_EMAIL || "jeeththenthar.la2022csec@sece.ac.in";
+    const notificationEmail =  "jeeththenthar.la2022csec@sece.ac.in";
     
     // Check for missing or invalid email
     if (!notificationEmail || !isValidEmail(notificationEmail)) {

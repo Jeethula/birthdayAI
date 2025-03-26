@@ -27,7 +27,7 @@ export async function GET(
 ) {
   try {
     const people = getPeopleData();
-    const person = people.find((p) => p.id === params.id);
+    const person = people.find((p:any) => p.id === params.id);
 
     if (!person) {
       return NextResponse.json(
@@ -63,7 +63,7 @@ export async function PUT(
     }
 
     const people = getPeopleData();
-    const index = people.findIndex((p) => p.id === params.id);
+    const index = people.findIndex((p:any) => p.id === params.id);
 
     if (index === -1) {
       return NextResponse.json(
@@ -104,7 +104,7 @@ export async function DELETE(
 ) {
   try {
     const people = getPeopleData();
-    const index = people.findIndex((p) => p.id === params.id);
+    const index = people.findIndex((p:any) => p.id === params.id);
 
     if (index === -1) {
       return NextResponse.json(

@@ -125,16 +125,8 @@ export async function GET() {
           celebrations
         );
 
-        // Send personalized email to the celebrating person
-        await sendBirthdayEmail({
-          to: person.email,
-          name: person.name,
-          posterUrl: posterData,
-          celebrations,
-          isAdmin: false
-        });
-
-        // Send notification email to admin
+        // NOTE: In development/test mode, Resend only allows sending to verified email (jeethupachi@gmail.com)
+        // In production with a verified domain, we can send to any email
         await sendBirthdayEmail({
           to: notificationEmail,
           name: person.name,
@@ -150,14 +142,29 @@ export async function GET() {
             birthday: celebrations.isBirthday,
             workAnniversary: celebrations.isWorkAnniversary
           },
-          isAIGenerated: JSON.parse(posterData).isAIGenerated
+          isAIGenerated: JSON.parse(posterData).isAIGenerated,
+          emailSentTo: notificationEmail
         });
       } catch (error) {
-        console.error(`Error processing birthday for ${person.name}:`, error);
+        console.error(`Error processing celebration for ${person.name}:`, error);
+        
+        let errorMessage = 'Unknown error';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          // Handle Resend API error format
+          errorMessage = 'error' in error ? (error.error as string) :
+                        'message' in error ? (error.message as string) : 'Unknown error';
+        }
+        
         results.push({
           name: person.name,
           status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage,
+          celebrations: {
+            birthday: celebrations.isBirthday,
+            workAnniversary: celebrations.isWorkAnniversary
+          }
         });
       }
     }

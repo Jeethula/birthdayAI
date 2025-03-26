@@ -1,8 +1,3 @@
 {
-  "buildCommand": "prisma generate && next build",
-  "functions": {
-    "app/api/generate-image/route.ts": {
-      "maxDuration": 120
-    }
-  }
+  "buildCommand": "prisma generate && next build"
 }

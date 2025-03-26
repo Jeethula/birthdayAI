@@ -41,7 +41,8 @@ export async function POST(req: Request) {
         model: "gemini-2.0-flash-exp-image-generation",
       });
 
-      // Wrap the generation in a timeout
+
+
       const response = await withTimeout(
         model.generateContent(imagePrompt),
         90000 // 90 second timeout

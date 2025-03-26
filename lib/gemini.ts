@@ -15,14 +15,8 @@ export async function generateBirthdayMessage(name: string): Promise<string> {
   }
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-pro",
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 100,
-      }
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.0-pro"
     });
 
     const prompt = `Write a warm, personal 2-line birthday message for ${name}.

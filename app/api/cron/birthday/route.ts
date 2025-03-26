@@ -15,6 +15,12 @@ function isBirthday(dateOfBirth: Date): boolean {
   );
 }
 
+// Validate email format
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 // Generate poster data including message
 async function generateBirthdayPoster(person: { name: string; imageUrl: string }): Promise<string> {
   try {
@@ -43,6 +49,12 @@ export async function GET() {
     // Log AI availability
     console.log('AI Generation available:', isGeminiAvailable());
     
+    // Get notification email from environment variable
+    const notificationEmail = process.env.NOTIFICATION_EMAIL;
+    if (!notificationEmail || !isValidEmail(notificationEmail)) {
+      throw new Error('Invalid or missing NOTIFICATION_EMAIL environment variable. Must be a valid email address.');
+    }
+
     // Get all people from the database
     const people = await prisma.person.findMany();
     
@@ -61,12 +73,6 @@ export async function GET() {
           name: person.name,
           imageUrl: person.photo || '/default-avatar.png' // Fallback to default if no photo
         });
-
-        // Get notification email from environment variable
-        const notificationEmail = process.env.NOTIFICATION_EMAIL;
-        if (!notificationEmail) {
-          throw new Error('NOTIFICATION_EMAIL environment variable not configured');
-        }
 
         // Send email with the poster
         await sendBirthdayEmail({

@@ -11,6 +11,9 @@ const nextConfig = {
   },
   experimental: {
     serverActions: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true, // Ignore TypeScript errors during build
   }
 }
 

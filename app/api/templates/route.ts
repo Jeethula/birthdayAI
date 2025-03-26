@@ -3,14 +3,11 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Adjust your API config to handle larger payloads
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "4mb",
-    },
-  },
-};
+// Set maximum body size to 4MB
+export const dynamic = 'force-dynamic';
+export async function generateStaticParams() {
+  return [];
+}
 
 // GET all templates
 export async function GET() {

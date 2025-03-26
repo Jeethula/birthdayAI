@@ -118,7 +118,14 @@ export default function GenerateImage() {
     }
   };
 
-  const handleImageResponse = (data) => {
+  interface ImageResponse {
+    imageData?: string;
+    imageUrl?: string;
+    generatedText?: string;
+    fallback?: boolean;
+  }
+
+  const handleImageResponse = (data: ImageResponse) => {
     if (data.imageData) {
       // For direct Gemini-generated images
       setImageSrc(`data:image/png;base64,${data.imageData}`);

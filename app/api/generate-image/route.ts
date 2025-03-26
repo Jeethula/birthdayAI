@@ -36,9 +36,6 @@ export async function POST(req: Request) {
       // but we can use this information in the prompt
       const model = genAI.getGenerativeModel({
         model: "gemini-2.0-flash-exp-image-generation",
-        generationConfig: {
-          responseModalities: ["Text", "Image"],
-        },
       });
 
       // Generate content with the image prompt
@@ -71,9 +68,11 @@ export async function POST(req: Request) {
       console.error("Inner error details:", innerError);
 
       // If the image generation model isn't available, fallback to text + Pollinations
+      // Type check innerError before accessing its properties
       if (
-        innerError.message?.includes("not found") ||
-        innerError.message?.includes("not supported")
+        innerError instanceof Error &&
+        (innerError.message.includes("not found") ||
+          innerError.message.includes("not supported"))
       ) {
         console.log("Falling back to text generation + Pollinations API");
 

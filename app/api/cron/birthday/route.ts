@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { sendBirthdayEmail } from '@/lib/email';
 import { generateBirthdayMessage, isGeminiAvailable } from '@/lib/gemini';
 
@@ -47,8 +47,8 @@ export async function GET() {
     const people = await prisma.person.findMany();
     
     // Filter people who have birthdays today
-    const birthdayPeople = people.filter(person => 
-      isBirthday(new Date(person.dateOfBirth))
+    const birthdayPeople = people.filter(person =>
+      person.dateOfBirth && isBirthday(new Date(person.dateOfBirth))
     );
 
     const results = [];
@@ -57,7 +57,10 @@ export async function GET() {
     for (const person of birthdayPeople) {
       try {
         // Generate birthday poster with message
-        const posterData = await generateBirthdayPoster(person);
+        const posterData = await generateBirthdayPoster({
+          name: person.name,
+          imageUrl: person.photo || '/default-avatar.png' // Fallback to default if no photo
+        });
 
         // Get notification email from environment variable
         const notificationEmail = process.env.NOTIFICATION_EMAIL;

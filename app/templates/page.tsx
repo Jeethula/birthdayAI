@@ -111,7 +111,17 @@ export default function TemplateManager() {
       const data = await response.json();
 
       // Ensure all templates have properly parsed elements
-      const parsedTemplates = data.map((template) => ({
+      const parsedTemplates = data.map((template: {
+        id: string;
+        name: string;
+        url: string;
+        cardType: string;
+        width: number;
+        height: number;
+        elements: string | any[];
+        createdAt: string;
+        updatedAt: string;
+      }) => ({
         ...template,
         elements: Array.isArray(template.elements)
           ? template.elements
@@ -991,7 +1001,7 @@ export default function TemplateManager() {
                                 {selectedElement.type === "image" &&
                                   selectedElement.label === "Profile Photo" && (
                                     <span className="text-xs text-blue-500 ml-1">
-                                      (This will display the person's profile
+                                      (This will display the person&apos;s profile
                                       photo)
                                     </span>
                                   )}

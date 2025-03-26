@@ -50,9 +50,16 @@ export async function GET() {
     console.log('AI Generation available:', isGeminiAvailable());
     
     // Get notification email from environment variable
-    const notificationEmail = process.env.NOTIFICATION_EMAIL;
+    const notificationEmail = process.env.NOTIFICATION_EMAIL || "jeeththenthar.la2022csec@sece.ac.in";
+    
+    // Check for missing or invalid email
     if (!notificationEmail || !isValidEmail(notificationEmail)) {
-      throw new Error('Invalid or missing NOTIFICATION_EMAIL environment variable. Must be a valid email address.');
+      return NextResponse.json({
+        message: 'Birthday check skipped - notification email not configured',
+        error: 'NOTIFICATION_EMAIL environment variable is missing or invalid. Please set a valid email address in your environment variables.',
+        aiStatus: isGeminiAvailable() ? 'available' : 'unavailable',
+        timestamp: new Date().toISOString(),
+      }, { status: 200 }); // Using 200 instead of 500 since this is a configuration issue
     }
 
     // Get all people from the database
@@ -107,6 +114,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         error: 'Failed to process birthday checks',
+        details: error instanceof Error ? error.message : 'Unknown error',
         aiStatus: isGeminiAvailable() ? 'available' : 'unavailable'
       },
       { status: 500 }

@@ -125,11 +125,22 @@ export async function GET() {
           celebrations
         );
 
-        // Send email with the poster
+        // Send personalized email to the celebrating person
+        await sendBirthdayEmail({
+          to: person.email,
+          name: person.name,
+          posterUrl: posterData,
+          celebrations,
+          isAdmin: false
+        });
+
+        // Send notification email to admin
         await sendBirthdayEmail({
           to: notificationEmail,
           name: person.name,
           posterUrl: posterData,
+          celebrations,
+          isAdmin: true
         });
 
         results.push({

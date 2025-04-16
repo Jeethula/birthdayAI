@@ -2,6 +2,14 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Type definitions for template elements
+interface TemplateElement {
+  type: string;
+  text?: string;
+  url?: string;
+  fontSize?: string;
+}
+
 interface SendCelebrationEmailParams {
   to: string;
   name: string;
@@ -48,6 +56,23 @@ function getEmailTitle(name: string, celebrations: { isBirthday: boolean; isWork
   return `Happy Work Anniversary ${name}!`;
 }
 
+// Helper function to render template elements
+function renderTemplateElements(elements: TemplateElement[]): string {
+  return elements.map(element => {
+    if (element.type === 'image' && element.url) {
+      return `<img src="${encodeURI(element.url)}" alt="Celebration" style="display:block;max-width:100%;height:auto;border-radius:8px;margin:20px auto"/>`;
+    }
+    if (element.type === 'text' && element.text) {
+      return `<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">
+        <p style="margin:0;color:#444;font-size:${element.fontSize || '18px'};line-height:1.6;text-align:center">
+          ${element.text}
+        </p>
+      </div>`;
+    }
+    return '';
+  }).join('\n');
+}
+
 function getFallbackMessage(name: string, celebrations: { isBirthday: boolean; isWorkAnniversary: boolean }, isAdmin: boolean): string {
   if (isAdmin) {
     if (celebrations.isBirthday && celebrations.isWorkAnniversary) {
@@ -68,45 +93,114 @@ function getFallbackMessage(name: string, celebrations: { isBirthday: boolean; i
 
 export async function sendBirthdayEmail({ to, name, posterUrl, isAdmin = false, celebrations }: SendCelebrationEmailParams) {
   try {
-    let imageUrl: string;
-    let message: string;
+    const title = getEmailTitle(name, celebrations, isAdmin);
 
+    // Try to parse template elements
+    let contentSection = '';
     try {
-      const posterData = JSON.parse(posterUrl);
-      imageUrl = posterData.imageUrl || FALLBACK_IMAGE;
-      message = posterData.message;
-    } catch (error) {
-      console.error('Error parsing poster data:', error);
-      imageUrl = FALLBACK_IMAGE;
-      message = getFallbackMessage(name, celebrations, isAdmin);
+      if (posterUrl.startsWith('[')) {
+        const elements = JSON.parse(posterUrl) as TemplateElement[];
+        if (Array.isArray(elements)) {
+          contentSection = renderTemplateElements(elements);
+        }
+      } else {
+        contentSection = posterUrl.startsWith('data:image')
+          ? `<img src="${encodeURI(posterUrl)}" alt="Birthday Celebration" style="display:block;max-width:100%;height:auto;border-radius:8px;margin:0 auto"/>`
+          : `<div style="background:#f5f5f5;padding:30px;border-radius:8px;margin:20px 0">
+              <p style="margin:0;color:#444;font-size:18px;line-height:1.6;text-align:center">
+                ${posterUrl}
+              </p>
+             </div>`;
+      }
+    } catch (e) {
+      console.log('Error processing template elements:', e);
+      contentSection = `<div style="background:#f5f5f5;padding:30px;border-radius:8px;margin:20px 0">
+        <p style="margin:0;color:#444;font-size:18px;line-height:1.6;text-align:center">
+          ${posterUrl}
+        </p>
+       </div>`;
     }
 
+    const emailContent = `<!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+        </head>
+        <body style="margin:0;padding:0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f8f8">
+            <tr>
+              <td align="center" style="padding:40px 0">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);font-family:Arial,sans-serif">
+                  <tr>
+                    <td align="center" style="padding:40px">
+                      <h1 style="color:#333;margin:0 0 30px 0;font-size:24px">
+                        ${title}
+                      </h1>
+                      
+                      ${contentSection}
+                      
+                      <div style="margin-top:30px;text-align:center">
+                        <p style="color:#666;margin:0 0 10px 0;font-size:16px">
+                          ${isAdmin
+                            ? "This is an automated notification from Birthday AI"
+                            : "This message was created especially for you by Birthday AI"
+                          }
+                        </p>
+                        <p style="color:#999;font-size:14px;margin:0">
+                          Spreading joy, one celebration at a time 🎉
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>`;
+
+    // In test mode, only send to verified email
+    const testEmail = 'jeethupachi@gmail.com';
+    
+    // Log template/message details
+    if (isAdmin) {
+      console.log('Sending admin email with template:', {
+        name,
+        isAdmin,
+        hasTemplate: posterUrl.startsWith('data:image'),
+        isTemplateElements: posterUrl.startsWith('['),
+        posterUrlLength: posterUrl.length,
+        templateElementsPreview: posterUrl.startsWith('[') 
+          ? JSON.parse(posterUrl).map((el: TemplateElement) => ({ 
+              type: el.type, 
+              hasText: !!el.text, 
+              hasUrl: !!el.url 
+            }))
+          : null,
+        celebrations
+      });
+    }
+    
     const { data, error } = await resend.emails.send({
-      from: 'Birthday AI <birthday@resend.dev>',
-      to: [to],
+      from: 'Birthday AI <onboarding@resend.dev>',
+      to: [testEmail],  // Always send to test email in development
       subject: isAdmin ? getAdminSubject(name, celebrations) : getCelebrationSubject(name, celebrations),
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #333; text-align: center;">${getEmailTitle(name, celebrations, isAdmin)}</h1>
-          <div style="text-align: center; margin: 20px 0;">
-            <img 
-              src="${imageUrl}" 
-              alt="Celebration Poster" 
-              style="max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" 
-              onerror="this.onerror=null; this.src='${FALLBACK_IMAGE}';"
-            />
-          </div>
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px;">
-            <p style="color: #444; font-size: 18px; line-height: 1.6; white-space: pre-line; text-align: center; margin: 0;">
-              ${message}
-            </p>
-          </div>
-          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
-            <p>This is an automated message from Birthday AI</p>
-          </div>
-        </div>
-      `,
+      html: emailContent,
     });
+
+    // Log email status
+    console.log('Email sent:', {
+      to: testEmail,
+      originalRecipient: to,
+      isAdmin,
+      success: !error,
+      error: error ? error.message : null
+    });
+
+    // Log original intended recipient for debugging
+    if (to !== testEmail) {
+      console.log(`Email would have been sent to: ${to} (sent to ${testEmail} in test mode)`);
+    }
 
     if (error) {
       throw error;

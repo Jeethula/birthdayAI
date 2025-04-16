@@ -7,7 +7,7 @@ if (!apiKey) {
 }
 
 // Initialize with API version
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey, { apiVersion: "v1" }) : null;
 
 type CelebrationType = 'birthday' | 'anniversary' | 'both';
 
@@ -37,47 +37,9 @@ function getPrompt(name: string, type: CelebrationType): string {
 }
 
 export async function generateBirthdayMessage(name: string, type: CelebrationType = 'birthday'): Promise<string> {
-  if (!genAI) {
-    console.warn('Gemini AI not initialized, using fallback message');
-    return getFallbackMessage(name, type);
-  }
-
-  try {
-    // Use the latest model version
-    const model = genAI.getGenerativeModel({
-      model: "gemini-pro",
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 100,
-      },
-    });
-
-    const prompt = getPrompt(name, type);
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    
-    // Split into lines and take first two
-    const lines = text.split('\n').filter(line => line.trim());
-    const twoLines = lines.slice(0, 2).join('\n');
-
-    return twoLines || getFallbackMessage(name, type);
-  } catch (error) {
-    console.error('Error generating celebration message:', error);
-    
-    // Log detailed error for debugging
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-    }
-
-    return getFallbackMessage(name, type);
-  }
+  // Temporarily use fallback messages while Gemini API is being set up
+  console.log('Using fallback message while Gemini API is being configured');
+  return getFallbackMessage(name, type);
 }
 
 // Utility function to check if Gemini AI is available
